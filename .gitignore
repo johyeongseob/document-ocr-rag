@@ -1,3 +1,13 @@
+# Local Python virtual environment
 ocr/
+
+# Generated OCR inference results
 outputs/
+
+# Downloaded dataset (do not commit or redistribute)
+# Source: AI Hub, "Financial Industry-Specific Document OCR Data" lightweight sample
+# https://aihub.or.kr/aihubdata/data/view.do?dataSetSn=632
+data/
+
+# Python bytecode cache
 __pycache__/

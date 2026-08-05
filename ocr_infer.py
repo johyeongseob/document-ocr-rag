@@ -4,9 +4,10 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from pathlib import Path
 
-from paddleocr import PaddleOCR
+from ocr_utils import create_ocr, extract_predictions
 
 
 def parse_args() -> argparse.Namespace:
@@ -14,44 +15,27 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("image", type=Path, help="Path to a document image")
     parser.add_argument("--output", type=Path, default=Path("outputs"))
     parser.add_argument("--threshold", type=float, default=0.5)
+    parser.add_argument("--det-limit-side-len", type=int, default=1280)
     return parser.parse_args()
 
 
 def main() -> None:
     args = parse_args()
+    # Some OCR outputs contain symbols that the Windows CP949 console cannot encode.
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(errors="replace")
     if not args.image.is_file():
         raise FileNotFoundError(f"Input image not found: {args.image}")
 
     args.output.mkdir(parents=True, exist_ok=True)
 
-    # PP-OCR consists of a text detector followed by a text recognizer.
-    # We disable optional document/orientation modules to keep the first lab simple.
-    ocr = PaddleOCR(
-        lang="korean",
-        ocr_version="PP-OCRv5",
-        # Paddle 3.3.1's Windows oneDNN path currently fails on an attribute
-        # used by the PP-OCRv5 detector. The plain CPU kernels are reliable.
-        enable_mkldnn=False,
-        use_doc_orientation_classify=False,
-        use_doc_unwarping=False,
-        use_textline_orientation=False,
-        text_rec_score_thresh=args.threshold,
-    )
+    ocr = create_ocr(args.threshold, args.det_limit_side_len)
     results = ocr.predict(str(args.image))
 
     records: list[dict] = []
     for page_index, result in enumerate(results):
-        texts = result["rec_texts"]
-        scores = result["rec_scores"]
-        polygons = result["rec_polys"]
-
-        for text, score, polygon in zip(texts, scores, polygons):
-            record = {
-                "page": page_index,
-                "text": text,
-                "confidence": round(float(score), 4),
-                "polygon": polygon.tolist(),
-            }
+        for prediction in extract_predictions(result):
+            record = {"page": page_index, **prediction}
             records.append(record)
             print(f"[{record['confidence']:.4f}] {record['text']}")
 
