@@ -9,18 +9,13 @@ evaluation on the AI Hub financial document OCR sample.
 
 | Metric | Result |
 |---|---:|
-| Word detection coverage recall | **99.74%** |
-| Whitespace-normalized line exact match | **73.47%** |
+| Word detection coverage recall | 99.74% |
+| Whitespace-normalized line exact match | 73.47% |
 | **Whitespace-normalized CER** | **1.99%** |
-| Average processing time per document (CPU) | **~28 s** |
 
-Processing time is a wall-clock estimate that includes image loading, OCR
-inference, evaluation, and console output; it is not pure model latency.
-
-Coverage recall indicates whether a prediction polygon covers a GT word region;
-it does not indicate that the word was recognized correctly. For recognition,
-whitespace-normalized CER is the most representative metric here because the
-annotations are word-level while PaddleOCR generally produces line-level text.
+Whitespace-normalized CER measures the character insertions, deletions, and
+substitutions required after removing spaces from both the ground truth and OCR
+output. Lower values indicate better recognition performance.
 
 ## Project structure
 
