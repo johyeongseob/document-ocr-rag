@@ -4,6 +4,9 @@ ocr/
 # Generated OCR inference results
 outputs/
 
+# Local README visualization utility
+scripts/make_demo_gif.py
+
 # Downloaded dataset (do not commit or redistribute)
 # Source: AI Hub, "Financial Industry-Specific Document OCR Data" lightweight sample
 # https://aihub.or.kr/aihubdata/data/view.do?dataSetSn=632
@@ -11,3 +14,6 @@ data/
 
 # Python bytecode cache
 __pycache__/
+
+# Local secrets
+.env

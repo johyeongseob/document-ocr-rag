@@ -1,8 +1,9 @@
-# Simple OCR
+# Simple OCR-RAG
 
 Run pretrained Korean PP-OCRv5 text detection and recognition without model
 training. The project supports raw inference on a single document and diagnostic
-evaluation on the AI Hub financial document OCR sample.
+evaluation on the AI Hub financial document OCR sample. OCR predictions can also
+be indexed and queried through a small retrieval-augmented generation pipeline.
 
 
 ![PaddleOCR results](assets/ocr_demo.gif)
@@ -21,9 +22,15 @@ output. Lower values indicate better recognition performance.
 
 ```text
 simple-ocr/
-├── ocr_infer.py          # Raw OCR inference on one image
-├── evaluate_dataset.py   # Dataset inference and diagnostic evaluation
-├── ocr_utils.py          # Shared model, image, and result utilities
+├── src/
+│   ├── ocr/
+│   │   ├── infer.py       # Raw OCR inference on one image
+│   │   ├── evaluate.py    # Dataset inference and evaluation
+│   │   └── utils.py       # Shared OCR model and result utilities
+│   └── rag/
+│       ├── build_index.py # Chunk OCR text and create embeddings
+│       ├── query.py       # Retrieve evidence and generate a cited answer
+│       └── utils.py       # Chunking and similarity utilities
 ├── requirements.txt
 ├── data/                 # Local dataset; excluded from Git
 ├── outputs/              # Generated results; excluded from Git
@@ -43,6 +50,9 @@ python -m pip install -r .\requirements.txt
 
 The first inference downloads the pretrained PaddleOCR weights. Later runs use
 the cached models.
+
+Run source files as modules from the project root (for example,
+`python -m src.ocr.infer`) so package imports resolve consistently.
 
 ## Dataset
 
@@ -66,11 +76,11 @@ not redistributed. Follow the AI Hub terms of use.
 
 ## Single-image inference
 
-Use `ocr_infer.py` to obtain raw OCR predictions without comparing them with an
+Use the OCR inference module to obtain raw predictions without comparing them with an
 annotation:
 
 ```powershell
-python .\ocr_infer.py `
+python -m src.ocr.infer `
   .\data\financial_document_OCR_dataset_sample\images\bank_00001.jpg `
   --output .\outputs\bank_00001
 ```
@@ -94,30 +104,85 @@ Useful options:
 
 Reducing `--det-limit-side-len` speeds up CPU inference but may miss small text.
 
+## OCR-RAG prototype
+
+The RAG prototype reuses OCR predictions stored in `outputs/evaluation_all.json`:
+
+```text
+OCR lines → source-aware chunks → embeddings → top-k retrieval
+          → GPT-5 mini answer with document citations
+```
+
+The implementation uses `text-embedding-3-small` for retrieval embeddings and
+`gpt-5-mini` for grounded answer generation. Set the API key only in the current
+PowerShell session; never add it to source code:
+
+An OpenAI API account with available paid credits is required. New prepaid
+accounts may require a minimum initial credit purchase (commonly USD 5); check
+the current billing terms and auto-recharge setting before running the example.
+
+```powershell
+$env:OPENAI_API_KEY="your-api-key"
+```
+
+Build an index from the first 10 OCR documents:
+
+```powershell
+python -m src.rag.build_index `
+  --report .\outputs\evaluation_all.json `
+  --limit 10 `
+  --output .\outputs\rag_index.json
+```
+
+Ask a question and inspect the retrieved evidence:
+
+```powershell
+python -m src.rag.query `
+  "개인신용정보 조회에 동의하지 않으면 어떤 불이익이 있나요?" `
+  --show-context
+```
+
+Example questions for the 10-document prototype:
+
+1. `개인신용정보 조회에 동의하지 않으면 어떤 불이익이 있나요?`
+2. `개인신용정보를 수집하고 이용하는 목적은 무엇인가요?`
+3. `조회 동의의 효력기간이 끝난 후에는 어떤 목적으로 정보를 보유하나요?`
+4. `개인신용정보를 조회하는 대상 기관은 어디인가요?`
+5. `문서에서 조회하거나 수집하는 개인정보 항목에는 무엇이 있나요?`
+
+Each answer is instructed to use only the retrieved OCR evidence and cite its
+source as `[document#chunk]`. If the evidence is insufficient, it should say so
+rather than infer an unsupported answer.
+
+The sample documents may contain personal or sensitive information. Do not send
+non-public documents to an external API without authorization and appropriate
+de-identification. Generated indexes are stored under `outputs/` and excluded
+from Git.
+
 ## Dataset evaluation
 
 Evaluate the first image/annotation pair:
 
 ```powershell
-python .\evaluate_dataset.py --limit 1
+python -m src.ocr.evaluate --limit 1
 ```
 
 Evaluate a specific image:
 
 ```powershell
-python .\evaluate_dataset.py --image-name bank_00095.jpg
+python -m src.ocr.evaluate --image-name bank_00095.jpg
 ```
 
 Run a faster diagnostic evaluation on five images:
 
 ```powershell
-python .\evaluate_dataset.py --limit 5 --det-limit-side-len 960
+python -m src.ocr.evaluate --limit 5 --det-limit-side-len 960
 ```
 
 Evaluate all images in the lightweight sample:
 
 ```powershell
-python .\evaluate_dataset.py
+python -m src.ocr.evaluate
 ```
 
 High-resolution, text-dense documents are slow on CPU. Start with one or a few
@@ -169,7 +234,7 @@ diagnostic rather than an official or directly comparable benchmark protocol.
 
 ## Model configuration
 
-The shared configuration in `ocr_utils.py` initializes PaddleOCR with
+The shared configuration in `src/ocr/utils.py` initializes PaddleOCR with
 `lang="korean"` and `ocr_version="PP-OCRv5"`. PaddleOCR selects:
 
 | Stage | Pretrained model | Purpose |
@@ -181,7 +246,7 @@ No manual model download is required. After installing the dependencies, run any
 inference command:
 
 ```powershell
-python .\ocr_infer.py C:\path\to\document.jpg
+python -m src.ocr.infer C:\path\to\document.jpg
 ```
 
 PaddleOCR downloads missing model weights automatically on the first run and
@@ -197,6 +262,6 @@ The project uses CPU inference with oneDNN disabled for Windows compatibility.
 Document orientation classification, unwarping, and text-line orientation are
 also disabled.
 
-`evaluate_dataset.py` explicitly applies EXIF orientation because some sample
+`src/ocr/evaluate.py` explicitly applies EXIF orientation because some sample
 JPEG files store landscape pixels while their annotations use the rotated
 portrait coordinate system.
