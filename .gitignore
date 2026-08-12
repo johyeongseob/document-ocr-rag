@@ -1,5 +1,5 @@
 # Local Python virtual environment
-ocr/
+/ocr/
 
 # Generated OCR inference results
 outputs/
