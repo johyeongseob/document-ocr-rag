@@ -30,7 +30,12 @@ simple-ocr/
 │   └── rag/
 │       ├── build_index.py # Chunk OCR text and create embeddings
 │       ├── query.py       # Retrieve evidence and generate a cited answer
+│       ├── service.py     # Shared retrieval and generation service
 │       └── utils.py       # Chunking and similarity utilities
+├── web/
+│   ├── app.py             # FastAPI application
+│   ├── templates/         # HTML page
+│   └── static/            # CSS and browser JavaScript
 ├── requirements.txt
 ├── data/                 # Local dataset; excluded from Git
 ├── outputs/              # Generated results; excluded from Git
@@ -153,6 +158,20 @@ Example questions for the 10-document prototype:
 Each answer is instructed to use only the retrieved OCR evidence and cite its
 source as `[document#chunk]`. If the evidence is insufficient, it should say so
 rather than infer an unsupported answer.
+
+### Web interface
+
+After creating `outputs/rag_index.json` and setting `OPENAI_API_KEY`, start the
+local FastAPI application:
+
+```powershell
+python -m uvicorn web.app:app --reload
+```
+
+Open `http://127.0.0.1:8000` in a browser. The interface provides example
+questions, a Top-K selector, a generated answer, source documents, similarity
+scores, and expandable OCR evidence. The API key remains in the server's
+PowerShell environment and is never sent to the browser.
 
 The sample documents may contain personal or sensitive information. Do not send
 non-public documents to an external API without authorization and appropriate
